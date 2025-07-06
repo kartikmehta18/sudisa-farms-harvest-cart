@@ -1,15 +1,29 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingCart, Search, Menu } from 'lucide-react';
+import { ShoppingCart, Search, Menu, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useCart } from '@/contexts/CartContext';
 
 const Header = () => {
   const { getTotalItems } = useCart();
   const totalItems = getTotalItems();
+  const [userData, setUserData] = useState<any>(null);
+
+  useEffect(() => {
+    // Load user data from localStorage
+    const savedUserData = localStorage.getItem('sudisha-user');
+    if (savedUserData) {
+      setUserData(JSON.parse(savedUserData));
+    }
+  }, []);
+
+  const getInitials = (name: string) => {
+    return name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -42,7 +56,7 @@ const Header = () => {
             </Link>
           </nav>
 
-          {/* Search & Cart */}
+          {/* Search & User Actions */}
           <div className="flex items-center space-x-4">
             <div className="hidden md:flex items-center space-x-2">
               <Input
@@ -55,6 +69,23 @@ const Header = () => {
               </Button>
             </div>
             
+            {/* User Profile */}
+            <Link to="/profile">
+              {userData ? (
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={userData.avatar} />
+                  <AvatarFallback className="text-xs">
+                    {getInitials(userData.name)}
+                  </AvatarFallback>
+                </Avatar>
+              ) : (
+                <Button variant="ghost" size="sm">
+                  <User className="h-5 w-5" />
+                </Button>
+              )}
+            </Link>
+            
+            {/* Cart */}
             <Link to="/cart">
               <Button variant="ghost" size="sm" className="relative">
                 <ShoppingCart className="h-5 w-5" />

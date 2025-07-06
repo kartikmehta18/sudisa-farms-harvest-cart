@@ -89,4 +89,52 @@ export const api = {
       return [];
     }
   },
+
+  getBlogPost: async (id: number): Promise<BlogPost | null> => {
+    try {
+      const response = await axios.get(`${wpBaseURL}/posts/${id}`, {
+        params: {
+          _embed: true,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching blog post:', error);
+      return null;
+    }
+  },
+
+  // Cart API (WooCommerce REST API)
+  addToCart: async (productId: number, quantity: number = 1): Promise<any> => {
+    try {
+      const response = await axios.post(`${wcBaseURL}/cart/add-item`, {
+        id: productId,
+        quantity: quantity,
+      }, {
+        auth: wcAuth,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      throw error;
+    }
+  },
+
+  // Coupon API
+  applyCoupon: async (couponCode: string): Promise<any> => {
+    try {
+      const response = await axios.post('https://sudishafarms.com/', {
+        'wc-ajax': 'apply_coupon_on_click',
+        coupon_code: couponCode,
+      }, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error applying coupon:', error);
+      throw error;
+    }
+  },
 };

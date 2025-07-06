@@ -1,18 +1,35 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Plus, Check, X } from 'lucide-react';
+import CouponManager from '@/components/CouponManager';
 
 const Cart = () => {
   const { items, updateQuantity, removeFromCart, getTotalPrice } = useCart();
+  const [appliedCoupon, setAppliedCoupon] = useState<string>('');
+  const [couponDiscount, setCouponDiscount] = useState<number>(0);
 
   const formatPrice = (price: number) => {
     return `₹${price.toFixed(2)}`;
   };
+
+  const handleApplyCoupon = (couponCode: string, discount: number) => {
+    setAppliedCoupon(couponCode);
+    setCouponDiscount(discount);
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon('');
+    setCouponDiscount(0);
+  };
+
+  const subtotal = getTotalPrice();
+  const discountAmount = subtotal * (couponDiscount / 100);
+  const finalTotal = subtotal - discountAmount;
 
   if (items.length === 0) {
     return (
@@ -116,6 +133,15 @@ const Cart = () => {
               </CardContent>
             </Card>
           ))}
+
+          {/* Coupon Section */}
+          <div className="mt-8">
+            <CouponManager
+              onApplyCoupon={handleApplyCoupon}
+              appliedCoupon={appliedCoupon}
+              onRemoveCoupon={handleRemoveCoupon}
+            />
+          </div>
         </div>
 
         {/* Order Summary */}
@@ -127,8 +153,15 @@ const Cart = () => {
             <CardContent className="space-y-4">
               <div className="flex justify-between">
                 <span>Subtotal:</span>
-                <span>{formatPrice(getTotalPrice())}</span>
+                <span>{formatPrice(subtotal)}</span>
               </div>
+              
+              {appliedCoupon && (
+                <div className="flex justify-between text-green-600">
+                  <span>Coupon Discount ({appliedCoupon}):</span>
+                  <span>-{formatPrice(discountAmount)}</span>
+                </div>
+              )}
               
               <div className="flex justify-between">
                 <span>Shipping:</span>
@@ -139,7 +172,7 @@ const Cart = () => {
               
               <div className="flex justify-between text-lg font-bold">
                 <span>Total:</span>
-                <span>{formatPrice(getTotalPrice())}</span>
+                <span>{formatPrice(finalTotal)}</span>
               </div>
 
               <div className="space-y-2 pt-4">
