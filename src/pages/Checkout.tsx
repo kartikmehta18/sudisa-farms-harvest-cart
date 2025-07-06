@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,9 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
+import { api } from '@/services/api';
 
 const Checkout = () => {
   const { items, getTotalPrice, clearCart } = useCart();
+  const navigate = useNavigate();
+  const [isProcessing, setIsProcessing] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -30,19 +34,77 @@ const Checkout = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsProcessing(true);
     
-    // Simulate order processing
-    toast({
-      title: "Order Placed Successfully!",
-      description: "Thank you for your order. We'll process it shortly.",
-    });
-    
-    clearCart();
-    
-    // In a real app, you would redirect to a success page or send data to backend
-    console.log('Order placed:', { items, formData, total: getTotalPrice() });
+    try {
+      // Get user data
+      const userData = JSON.parse(localStorage.getItem('sudisha-user') || '{}');
+      
+      // Prepare order data
+      const orderData = {
+        payment_method: 'cod',
+        payment_method_title: 'Cash on Delivery',
+        set_paid: false,
+        billing: {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          address_1: formData.address,
+          city: formData.city,
+          state: formData.state,
+          postcode: formData.zipCode,
+          country: 'IN',
+          email: formData.email,
+          phone: formData.phone,
+        },
+        shipping: {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          address_1: formData.address,
+          city: formData.city,
+          state: formData.state,
+          postcode: formData.zipCode,
+          country: 'IN',
+        },
+        line_items: items.map(item => ({
+          product_id: item.product.id,
+          quantity: item.quantity,
+        })),
+        customer_id: userData.id || 0,
+      };
+
+      // Create order
+      const order = await api.createOrder(orderData);
+      
+      // Save order to local storage for order history
+      const existingOrders = JSON.parse(localStorage.getItem('user-orders') || '[]');
+      existingOrders.push({
+        ...order,
+        items: items,
+        customerData: formData,
+        createdAt: new Date().toISOString(),
+      });
+      localStorage.setItem('user-orders', JSON.stringify(existingOrders));
+
+      toast({
+        title: "Order Placed Successfully!",
+        description: `Order #${order.number} has been created. Thank you for your purchase!`,
+      });
+      
+      clearCart();
+      navigate('/orders');
+      
+    } catch (error) {
+      console.error('Error creating order:', error);
+      toast({
+        title: "Order Failed",
+        description: "There was an error processing your order. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (items.length === 0) {
@@ -160,8 +222,13 @@ const Checkout = () => {
                 />
               </div>
 
-              <Button type="submit" className="w-full organic-gradient" size="lg">
-                Place Order
+              <Button 
+                type="submit" 
+                className="w-full organic-gradient" 
+                size="lg"
+                disabled={isProcessing}
+              >
+                {isProcessing ? 'Processing Order...' : 'Place Order'}
               </Button>
             </form>
           </CardContent>
@@ -227,7 +294,7 @@ const Checkout = () => {
               <p className="text-sm text-muted-foreground mb-2">
                 <strong>Payment Method:</strong> Cash on Delivery
               </p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 You will pay when your order is delivered to your address.
               </p>
             </div>

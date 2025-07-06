@@ -1,22 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { Tag, Percent, Calendar, Gift } from 'lucide-react';
-
-interface Coupon {
-  id: string;
-  code: string;
-  description: string;
-  discount: number;
-  type: 'percentage' | 'fixed';
-  expiryDate: string;
-  minAmount?: number;
-  isActive: boolean;
-}
+import { api } from '@/services/api';
 
 interface CouponManagerProps {
   onApplyCoupon?: (couponCode: string, discount: number) => void;
@@ -32,38 +23,11 @@ const CouponManager: React.FC<CouponManagerProps> = ({
   const [couponCode, setCouponCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Sample coupons - in real app, fetch from API
-  const availableCoupons: Coupon[] = [
-    {
-      id: '1',
-      code: 'ORGANIC10',
-      description: 'Get 10% off on all organic products',
-      discount: 10,
-      type: 'percentage',
-      expiryDate: '2024-12-31',
-      minAmount: 500,
-      isActive: true
-    },
-    {
-      id: '2',
-      code: 'SEEDS20',
-      description: 'Flat ₹20 off on seed purchases',
-      discount: 20,
-      type: 'fixed',
-      expiryDate: '2024-08-31',
-      minAmount: 200,
-      isActive: true
-    },
-    {
-      id: '3',
-      code: 'NEWUSER15',
-      description: '15% off for new customers',
-      discount: 15,
-      type: 'percentage',
-      expiryDate: '2024-09-30',
-      isActive: true
-    }
-  ];
+  // Fetch real coupons from WooCommerce API
+  const { data: coupons = [], isLoading: couponsLoading } = useQuery({
+    queryKey: ['coupons'],
+    queryFn: api.getCoupons,
+  });
 
   const applyCoupon = async (code?: string) => {
     const codeToApply = code || couponCode;
@@ -79,18 +43,23 @@ const CouponManager: React.FC<CouponManagerProps> = ({
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const coupon = availableCoupons.find(
-        c => c.code.toLowerCase() === codeToApply.toLowerCase() && c.isActive
+      // Find coupon in the fetched list
+      const coupon = coupons.find(
+        c => c.code.toLowerCase() === codeToApply.toLowerCase() && c.status === 'publish'
       );
 
       if (coupon) {
-        onApplyCoupon?.(coupon.code, coupon.discount);
+        // Apply coupon via API
+        await api.applyCoupon(coupon.code);
+        
+        const discount = coupon.discount_type === 'percent' 
+          ? parseFloat(coupon.amount) 
+          : parseFloat(coupon.amount);
+        
+        onApplyCoupon?.(coupon.code, discount);
         toast({
           title: "Coupon Applied!",
-          description: `${coupon.description}`,
+          description: `${coupon.description || `${coupon.amount}${coupon.discount_type === 'percent' ? '%' : '₹'} discount applied`}`,
         });
         setCouponCode('');
       } else {
@@ -101,6 +70,7 @@ const CouponManager: React.FC<CouponManagerProps> = ({
         });
       }
     } catch (error) {
+      console.error('Error applying coupon:', error);
       toast({
         title: "Error",
         description: "Failed to apply coupon. Please try again.",
@@ -119,19 +89,28 @@ const CouponManager: React.FC<CouponManagerProps> = ({
     });
   };
 
-  const formatDiscount = (coupon: Coupon) => {
-    return coupon.type === 'percentage' 
-      ? `${coupon.discount}% OFF` 
-      : `₹${coupon.discount} OFF`;
+  const formatDiscount = (coupon: any) => {
+    return coupon.discount_type === 'percent' 
+      ? `${coupon.amount}% OFF` 
+      : `₹${coupon.amount} OFF`;
   };
 
   const formatExpiryDate = (dateString: string) => {
+    if (!dateString) return 'No expiry';
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
     });
   };
+
+  if (couponsLoading) {
+    return (
+      <div className="flex justify-center items-center h-32">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -178,58 +157,68 @@ const CouponManager: React.FC<CouponManagerProps> = ({
       </Card>
 
       {/* Available Coupons */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Percent className="mr-2 h-5 w-5" />
-            Available Coupons
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {availableCoupons.map((coupon) => (
-              <div 
-                key={coupon.id} 
-                className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <Badge className="bg-primary/10 text-primary mr-2">
-                        {coupon.code}
-                      </Badge>
-                      <Badge variant="secondary">
-                        {formatDiscount(coupon)}
-                      </Badge>
+      {coupons.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Percent className="mr-2 h-5 w-5" />
+              Available Coupons ({coupons.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {coupons.map((coupon) => (
+                <div 
+                  key={coupon.id} 
+                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center mb-2">
+                        <Badge className="bg-primary/10 text-primary mr-2">
+                          {coupon.code}
+                        </Badge>
+                        <Badge variant="secondary">
+                          {formatDiscount(coupon)}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-1">
+                        {coupon.description || `Get ${formatDiscount(coupon)} on your order`}
+                      </p>
+                      <div className="flex items-center text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3 mr-1" />
+                        Expires: {formatExpiryDate(coupon.date_expires)}
+                        {coupon.minimum_amount && parseFloat(coupon.minimum_amount) > 0 && (
+                          <span className="ml-3">
+                            Min. order: ₹{coupon.minimum_amount}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-1">
-                      {coupon.description}
-                    </p>
-                    <div className="flex items-center text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      Expires: {formatExpiryDate(coupon.expiryDate)}
-                      {coupon.minAmount && (
-                        <span className="ml-3">
-                          Min. order: ₹{coupon.minAmount}
-                        </span>
-                      )}
-                    </div>
+                    <Button
+                      onClick={() => applyCoupon(coupon.code)}
+                      size="sm"
+                      variant="outline"
+                      className="ml-4"
+                      disabled={appliedCoupon === coupon.code}
+                    >
+                      {appliedCoupon === coupon.code ? 'Applied' : 'Apply'}
+                    </Button>
                   </div>
-                  <Button
-                    onClick={() => applyCoupon(coupon.code)}
-                    size="sm"
-                    variant="outline"
-                    className="ml-4"
-                    disabled={appliedCoupon === coupon.code}
-                  >
-                    {appliedCoupon === coupon.code ? 'Applied' : 'Apply'}
-                  </Button>
                 </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {coupons.length === 0 && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-muted-foreground">No coupons available at the moment</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

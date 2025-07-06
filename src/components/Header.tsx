@@ -31,10 +31,11 @@ const Header = () => {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">SF</span>
-            </div>
-            <span className="font-bold text-xl text-primary">Sudisha Farms</span>
+            <img
+              src="https://i0.wp.com/sudishafarms.com/wp-content/uploads/2024/02/WhatsApp-Image-2025-03-27-at-11.33.17.jpeg?resize=1024%2C384&ssl=1"
+              alt="Sudisha Farms"
+              className="h-12 w-auto object-contain"
+            />
           </Link>
 
           {/* Navigation */}

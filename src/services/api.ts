@@ -74,13 +74,14 @@ export const api = {
     }
   },
 
-  // Blog Posts
-  getBlogPosts: async (): Promise<BlogPost[]> => {
+  // Blog Posts - fetch all posts
+  getBlogPosts: async (page: number = 1, perPage: number = 24): Promise<BlogPost[]> => {
     try {
       const response = await axios.get(`${wpBaseURL}/posts`, {
         params: {
           _embed: true,
-          per_page: 12,
+          per_page: perPage,
+          page: page,
         },
       });
       return response.data;
@@ -104,7 +105,38 @@ export const api = {
     }
   },
 
-  // Cart API (WooCommerce REST API)
+  // Get all blog posts (fetch all pages)
+  getAllBlogPosts: async (): Promise<BlogPost[]> => {
+    try {
+      let allPosts: BlogPost[] = [];
+      let page = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await axios.get(`${wpBaseURL}/posts`, {
+          params: {
+            _embed: true,
+            per_page: 100,
+            page: page,
+          },
+        });
+
+        if (response.data.length === 0) {
+          hasMore = false;
+        } else {
+          allPosts = [...allPosts, ...response.data];
+          page++;
+        }
+      }
+
+      return allPosts;
+    } catch (error) {
+      console.error('Error fetching all blog posts:', error);
+      return [];
+    }
+  },
+
+  // Cart API
   addToCart: async (productId: number, quantity: number = 1): Promise<any> => {
     try {
       const response = await axios.post(`${wcBaseURL}/cart/add-item`, {
@@ -120,7 +152,24 @@ export const api = {
     }
   },
 
-  // Coupon API
+  // Coupon API - fetch real coupons
+  getCoupons: async (): Promise<any[]> => {
+    try {
+      const response = await axios.get(`${wcBaseURL}/coupons`, {
+        auth: wcAuth,
+        params: {
+          per_page: 50,
+          status: 'publish',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching coupons:', error);
+      return [];
+    }
+  },
+
+  // Apply coupon
   applyCoupon: async (couponCode: string): Promise<any> => {
     try {
       const response = await axios.post('https://sudishafarms.com/', {
@@ -134,6 +183,58 @@ export const api = {
       return response.data;
     } catch (error) {
       console.error('Error applying coupon:', error);
+      throw error;
+    }
+  },
+
+  // Order Management
+  createOrder: async (orderData: any): Promise<any> => {
+    try {
+      const response = await axios.post(`${wcBaseURL}/orders`, orderData, {
+        auth: wcAuth,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error creating order:', error);
+      throw error;
+    }
+  },
+
+  getOrders: async (customerId?: number): Promise<any[]> => {
+    try {
+      const params: any = {
+        per_page: 50,
+      };
+      
+      if (customerId) {
+        params.customer = customerId;
+      }
+
+      const response = await axios.get(`${wcBaseURL}/orders`, {
+        auth: wcAuth,
+        params,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      return [];
+    }
+  },
+
+  // Payment processing
+  processPayment: async (orderId: number, paymentData: any): Promise<any> => {
+    try {
+      const response = await axios.post(`https://sudishafarms.com/checkout-2/order-pay/${orderId}/`, {
+        ...paymentData,
+        pay_for_order: true,
+      }, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error processing payment:', error);
       throw error;
     }
   },

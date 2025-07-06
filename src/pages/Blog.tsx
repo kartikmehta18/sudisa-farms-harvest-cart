@@ -10,8 +10,8 @@ import { Calendar, Clock, ArrowRight } from 'lucide-react';
 
 const Blog = () => {
   const { data: posts = [], isLoading } = useQuery({
-    queryKey: ['blog-posts'],
-    queryFn: api.getBlogPosts,
+    queryKey: ['all-blog-posts'],
+    queryFn: api.getAllBlogPosts,
   });
 
   const formatDate = (dateString: string) => {
@@ -48,6 +48,11 @@ const Blog = () => {
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           Discover tips, insights, and stories from the world of organic farming
         </p>
+        <div className="mt-4">
+          <Badge variant="secondary" className="text-sm">
+            {posts.length} Articles Available
+          </Badge>
+        </div>
       </div>
 
       {/* Featured Post */}
@@ -106,7 +111,7 @@ const Blog = () => {
       {/* Blog Posts Grid */}
       {posts.length > 1 && (
         <>
-          <h2 className="text-2xl font-bold mb-6">Latest Articles</h2>
+          <h2 className="text-2xl font-bold mb-6">All Articles ({posts.length - 1})</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {posts.slice(1).map((post) => (
               <Card key={post.id} className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-0 shadow-md">
