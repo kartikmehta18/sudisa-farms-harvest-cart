@@ -74,7 +74,7 @@ export const api = {
     }
   },
 
-  // Blog Posts - fetch all posts
+  // Blog Posts - fetch all posts properly
   getBlogPosts: async (page: number = 1, perPage: number = 24): Promise<BlogPost[]> => {
     try {
       const response = await axios.get(`${wpBaseURL}/posts`, {
@@ -82,6 +82,7 @@ export const api = {
           _embed: true,
           per_page: perPage,
           page: page,
+          status: 'publish'
         },
       });
       return response.data;
@@ -105,7 +106,7 @@ export const api = {
     }
   },
 
-  // Get all blog posts (fetch all pages)
+  // Get all blog posts (fetch all pages properly)
   getAllBlogPosts: async (): Promise<BlogPost[]> => {
     try {
       let allPosts: BlogPost[] = [];
@@ -113,22 +114,34 @@ export const api = {
       let hasMore = true;
 
       while (hasMore) {
-        const response = await axios.get(`${wpBaseURL}/posts`, {
-          params: {
-            _embed: true,
-            per_page: 100,
-            page: page,
-          },
-        });
+        try {
+          const response = await axios.get(`${wpBaseURL}/posts`, {
+            params: {
+              _embed: true,
+              per_page: 24,
+              page: page,
+              status: 'publish'
+            },
+          });
 
-        if (response.data.length === 0) {
+          if (response.data && response.data.length > 0) {
+            allPosts = [...allPosts, ...response.data];
+            page++;
+            
+            // Check if we got less than requested, meaning we're at the end
+            if (response.data.length < 24) {
+              hasMore = false;
+            }
+          } else {
+            hasMore = false;
+          }
+        } catch (pageError: any) {
+          console.log(`No more pages available at page ${page}`);
           hasMore = false;
-        } else {
-          allPosts = [...allPosts, ...response.data];
-          page++;
         }
       }
 
+      console.log(`Fetched ${allPosts.length} total blog posts`);
       return allPosts;
     } catch (error) {
       console.error('Error fetching all blog posts:', error);
@@ -152,7 +165,7 @@ export const api = {
     }
   },
 
-  // Coupon API - fetch real coupons
+  // Coupon API - fetch available coupons (not applied ones)
   getCoupons: async (): Promise<any[]> => {
     try {
       const response = await axios.get(`${wcBaseURL}/coupons`, {
@@ -162,7 +175,19 @@ export const api = {
           status: 'publish',
         },
       });
-      return response.data;
+      
+      // Filter only active/available coupons
+      const availableCoupons = response.data.filter((coupon: any) => {
+        const now = new Date();
+        const expiryDate = coupon.date_expires ? new Date(coupon.date_expires) : null;
+        
+        return coupon.status === 'publish' && 
+               (!expiryDate || expiryDate > now) &&
+               coupon.usage_count < coupon.usage_limit;
+      });
+      
+      console.log(`Found ${availableCoupons.length} available coupons`);
+      return availableCoupons;
     } catch (error) {
       console.error('Error fetching coupons:', error);
       return [];
